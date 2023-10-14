@@ -20,6 +20,7 @@ Let $A,B \in L$ be two propositions. The two tableau rules we use for $A \downar
 $$
 \frac{F A \downarrow B}{T A \mid T B}
 $$
+
 $$
 \frac{T A \downarrow B}{F A ,  F B}
 $$
