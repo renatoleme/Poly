@@ -11,18 +11,18 @@ $E_T$ tableau system is implemented according to the description given in [1].
 
 We define the set of propositions $L$ using only *nor* ($\downarrow$) as the primitive connective. 
 
-\[
+$$
 L ::= p \mid L \downarrow L
-\]
+$$
 
 Let $A,B \in L$ be two propositions. The two tableau rules we use for $A \downarrow B$ are the following.
 
-\[
+$$
 \frac{F A \downarrow B}{T A \mid T B}
-\]
-\[
+$$
+$$
 \frac{T A \downarrow B}{F A ,  F B}
-\]
+$$
 
 The other connectives are then defined as follows (see [CL/CL1.v](CL/CL1.v)).
 
