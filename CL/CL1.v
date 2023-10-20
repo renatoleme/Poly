@@ -27,7 +27,7 @@ Inductive node :=
 | Node (SL : SignedLF LF).
 
 Definition NORTableau
-  (snapshot : poly_binary_tree node)
+  (snapshot : btree node)
   (lc : list (check node))
   (listNodes : list (pair node (list node)))
   (listR : list node)
@@ -81,18 +81,6 @@ Definition NORTableau
               end
           end
       end
-  end.
-
-Fixpoint cleanLeaf
-  {X : Type}
-  (t : poly_binary_tree X)
-  := 
-  match t with
-  | Leaf _ _ lc cmodels lvals => Leaf nil nil 0 nil nil
-  | Alpha n nT =>
-      Alpha n (cleanLeaf nT)
-  | Beta t1 t2 =>
-      Beta (cleanLeaf t1) (cleanLeaf t2)
   end.
 
 Open Scope string_scope.
