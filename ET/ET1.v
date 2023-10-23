@@ -381,7 +381,7 @@ Fixpoint genR_list (l : list (list node)) (lnodes : list node) :=
   end.
 
 Definition SemanticEcumenicalTableau
-  (snapshot : poly_binary_tree node)
+  (snapshot : btree node)
   (lc : list (check node))
   (listNodes : list (pair node (list node)))
   (listR : list node)
@@ -660,7 +660,7 @@ Fixpoint reverseThisList {X : Type} (l : list (list X)) :=
 
 Fixpoint parse
   {X : Type}
-  (t : poly_binary_tree X)
+  (t : btree X)
   (i : list X)
   : list (list X)
   := 
@@ -727,11 +727,11 @@ Fixpoint closure_aux1 (l : list (list node)) :=
       else closure_aux1 tl
   end.
            
-Definition closure (t : poly_binary_tree node) :=
+Definition closure (t : btree node) :=
   let l := parse t nil in
   closure_aux1 l.
 
-Fixpoint treeIsInLoop (t1 : poly_binary_tree node) :=
+Fixpoint treeIsInLoop (t1 : btree node) :=
   match t1 with
   | Leaf lN lR lc lc2 _ =>
       if (List.length lN) <=? lc then true
@@ -750,7 +750,7 @@ Essa funcao remove essas informacoes para facilitar
 a visualizacao do resultado.*)
 Fixpoint cleanLeaf
   {X : Type}
-  (t : poly_binary_tree X)
+  (t : btree X)
   := 
   match t with
   | Leaf _ _ lc cmodels lvals => Leaf nil nil lc nil lvals
@@ -931,7 +931,7 @@ Fixpoint mergeModel (cmodels : list (list node)) (lvals : list node) :=
       (closeToH (lvals++((closeToTrans h)++h)))::(mergeModel tl lvals)
   end.
 
-Fixpoint getOnlyModels (t : poly_binary_tree node) :=
+Fixpoint getOnlyModels (t : btree node) :=
   match t with
   | Leaf _ _ _ cmodels lvals => (mergeModel (cmodels) ((closeToH (getOnlyAtom lvals))++(getOnlyAtom lvals)))
   | Alpha n nT => getOnlyModels nT
@@ -1057,7 +1057,7 @@ Definition search (lF : list LF) :=
 Fixpoint auto_tableau_aux
   (l : list LF)
   (steps : list nat)
-  (res : pair (poly_binary_tree node) (list node)) :=
+  (res : pair (btree node) (list node)) :=
   match steps with
   | nil => res
   | h::tl =>

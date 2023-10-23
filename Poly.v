@@ -13,6 +13,8 @@ Inductive pair (X Y : Type) :=
 
 Arguments Pair {X} {Y}.
 
+Notation "( A ; B )" := (Pair A B).
+
 Definition proj_l {X Y : Type} (p : pair X Y) :=
   match p with
   | Pair a b => a
@@ -56,14 +58,30 @@ Definition getIndexFromMemory (X : Type) (m : mem X) :=
   | record _ i v => i
   end.
 
-Inductive poly_binary_tree (X: Type) :=
-| Leaf : list (pair X (list X)) -> list X -> nat -> (list (list X)) -> list X -> poly_binary_tree X
-| Alpha : X -> poly_binary_tree X -> poly_binary_tree X
-| Beta  : poly_binary_tree X -> poly_binary_tree X -> poly_binary_tree X.
+Inductive btree (X: Type) :=
+| Leaf : list (pair X (list X)) -> list X -> nat -> (list (list X)) -> list X -> btree X
+| Alpha : X -> btree X -> btree X
+| Beta  : btree X -> btree X -> btree X.
 
 Arguments Leaf {X}.
 Arguments Alpha {X}.
 Arguments Beta {X}.
+
+Import ListNotations.
+
+Fixpoint parse
+  {X : Type}
+  (t : btree X)
+  (i : list X)
+  : list (list X)
+  := 
+  match t with
+  | Leaf _ _ _ _ _ => [i]
+  | Alpha n nT =>
+      parse nT (n::i)
+  | Beta t1 t2 =>
+      parse t1 i ++ parse t2 i  
+  end.
 
 (*Check Leaf _ (2::nil) nil.
 
@@ -100,10 +118,10 @@ Definition eqb_SignedLF
   end.
 
 Inductive check (X : Type) :=
-| checkpoint : poly_binary_tree X -> parameters -> check X.
+| checkpoint : btree X -> parameters -> check X.
 
 Inductive stt (X Y : Type) := 
-| state : poly_binary_tree X -> list (check X) -> list (mem Y) -> stt X Y.
+| state : btree X -> list (check X) -> list (mem Y) -> stt X Y.
 
 (*****************)
 
@@ -230,10 +248,22 @@ Definition getMemoryFromState (X Y : Type) (s : stt X Y) :=
   | state _ _ _ _ m => m
   end.
 
+Fixpoint cleanLeaf
+  {X : Type}
+  (t : btree X)
+  := 
+  match t with
+  | Leaf _ _ lc cmodels lvals => Leaf nil nil 0 nil nil
+  | Alpha n nT =>
+      Alpha n (cleanLeaf nT)
+  | Beta t1 t2 =>
+      Beta (cleanLeaf t1) (cleanLeaf t2)
+  end.
+
 Fixpoint expand
   (X Y : Type)
   (apply :
-    poly_binary_tree X ->
+    btree X ->
     list (check X) ->
     list (pair X (list X)) ->
     list X ->
@@ -243,8 +273,8 @@ Fixpoint expand
     list (mem Y) ->
     parameters ->
     stt X Y)
-  (t : poly_binary_tree X)
-  (snapshot : poly_binary_tree X) (** Uma cópia da árvore completa em seu estado atual **)
+  (t : btree X)
+  (snapshot : btree X) (** Uma cópia da árvore completa em seu estado atual **)
   (params : parameters)
   (m : list (mem Y))
   (lc : list (check X))
@@ -275,7 +305,7 @@ Definition getSelector (p : parameters) :=
 Fixpoint construct
   (X Y : Type)
   (apply :
-    poly_binary_tree X ->
+    btree X ->
     list (check X) ->
     list (pair X (list X)) ->
     list X ->
@@ -286,7 +316,7 @@ Fixpoint construct
     parameters ->
     stt X Y)
   (deepness : list nat)
-  (t : poly_binary_tree X)
+  (t : btree X)
   (l : list (check X))
   (m : list (mem Y))
   (p : parameters) : stt X Y:= 
@@ -328,7 +358,7 @@ Fixpoint getAllTreesFromListState (X Y : Type) (l : list (stt X Y)) :=
 Fixpoint checkpoint_handler
   (X Y : Type)
   (apply :
-    poly_binary_tree X ->
+    btree X ->
     list (check X) ->
     list (pair X (list X)) ->
     list X ->
@@ -355,7 +385,7 @@ Fixpoint checkpoint_handler
 Fixpoint controller
   (X Y: Type)
   (apply :
-    poly_binary_tree X ->
+    btree X ->
     list (check X) ->
     list (pair X (list X)) ->
     list X ->
@@ -379,7 +409,7 @@ Fixpoint controller
 Definition make
   (X Y : Type)
   (apply :
-    poly_binary_tree X ->
+    btree X ->
     list (check X) ->
     list (pair X (list X)) ->
     list X ->
@@ -389,7 +419,7 @@ Definition make
     list (mem Y) ->
     parameters ->
     stt X Y)
-  (initialTree : poly_binary_tree X)
+  (initialTree : btree X)
   (steps : nat)
   :=
   let deepness := (upto steps) in
@@ -398,3 +428,50 @@ Definition make
   let checks := getCheckpointListFromState X Y start_ in
   let m := getMemoryFromState X Y start_ in
   (getTreeFromState X Y start_)::(controller X Y apply deepness checks m p).
+
+(* CLOSURE *)
+
+Fixpoint closure_aux2 {X : Type}
+  (el : X)
+  (l : list X)
+  (contra : X -> X -> bool)
+  :=
+  match l with
+  | nil => false
+  | h::tl =>
+      if contra el h then true
+      else closure_aux2 el tl contra
+  end.
+
+Fixpoint closure_aux3
+  {X : Type}
+  (l cl : list X)
+  (contra : X -> X -> bool)
+  :=
+  match l with
+  | nil => false
+  | h::tl =>
+      let closed := closure_aux2 h cl contra in
+      if closed then true
+      else closure_aux3 tl cl contra
+  end.
+
+Fixpoint closure_aux1
+  {X : Type}
+  (l : list (list X))
+  (contra : X -> X -> bool) :=
+  match l with
+  | nil => true
+  | h::tl =>
+      if (negb (Nat.eqb (List.length h) 0)) then
+        andb (closure_aux3 h h contra) (closure_aux1 tl contra)
+      else closure_aux1 tl contra
+  end.
+           
+Definition closure
+  {X : Type}
+  (t : btree X)
+  (contra : X -> X -> bool)
+  :=
+  let l := parse t nil in
+  closure_aux1 l contra.
