@@ -42,8 +42,32 @@ Fixpoint eqb_lf (A B : LF) :=
   | _, _ => false
   end.
 
-(* paraconsistent propositions generator *)
+Inductive SLF :=
+| sign : nat -> LF -> SLF.
 
+(* Tools *)
+
+(* Check if A = B /\ ~B OR A = ~B /\ B*)
+Definition isContradiction (A : LF) :=
+  match A with
+  | B /\ C =>
+      let comp :=
+        (fun P Q =>
+           match Q with
+           | ~ R => eqb_lf P R
+           | _ => false
+           end)
+      in
+      orb (comp B C) (comp C B)
+  | _ => false
+  end.
+
+(* If A = B /\ ~B, then return B . If A = ~B /\ B, then return B.*)
+Definition selectContra (A B : LF) :=
+  if eqb_lf A (~B) then B else A.
+
+Compute selectContra (~~p0) (~p0).
+  
 (* A^n *)
 Fixpoint cngen (A : LF) (n : nat) : LF :=
   match n with
@@ -58,17 +82,6 @@ Fixpoint cngen2 (A : LF) (n : nat) : LF :=
   | S O => cngen A 1
   | S m => (cngen2 A m) /\ (cngen A (S m))
   end.
-
-Check p1 -> p4.
-Check p1 /\ (p2 \/ (~ p1 -> p4)).
-
-Inductive SLF :=
-| sign : nat -> LF -> SLF.
-
-Check sign 0 p1.
-Check sign 1 p2.
-
-Check btree SLF.
 
 (* 
 
@@ -193,6 +206,115 @@ Definition Impl_rule
            (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil)))
   end.
 
+(* DERIVED RULES *)
+
+Definition isBola (A : LF) :=
+  match A with
+  | ~ B => isContradiction B
+  | _ => false
+  end.
+
+Compute isBola (~((~(p1 /\ ~p1)) /\ ~(~(p1 /\ ~p1)))).
+
+Definition derived1
+  (B C : LF)
+  (lN : list (pair SLF (list SLF)))
+  :=
+  let contradicted := selectContra B C in
+  Alpha (sign 1 contradicted)
+    (Leaf (((sign 1 contradicted); nil)::lN) nil 0 nil nil).
+
+Definition derived2
+  (B C : LF)
+  (lN : list (pair SLF (list SLF)))
+  :=
+  let contradicted := selectContra B C in
+  Beta
+    (Alpha (sign 2 contradicted) (Leaf (((sign 2 contradicted); nil)::lN) nil 0 nil nil))
+    (Alpha (sign 0 contradicted) (Leaf (((sign 0 contradicted); nil)::lN) nil 0 nil nil)).
+
+Definition derived3
+  (B C : LF)
+  (lN : list (pair SLF (list SLF)))
+  :=
+  Beta
+    (Beta
+       (Alpha (sign 2 B)
+          (Alpha (sign 2 C)
+             (Leaf (((sign 2 B); nil)::((sign 2 C); nil)::lN) nil 0 nil nil)))
+       (Alpha (sign 2 B)
+          (Alpha (sign 0 C)
+             (Leaf (((sign 2 B); nil)::((sign 0 C); nil)::lN) nil 0 nil nil))))
+    (Beta
+       (Alpha (sign 0 B)
+          (Alpha (sign 2 C)
+             (Leaf (((sign 0 B); nil)::((sign 2 C); nil)::lN) nil 0 nil nil)))
+       (Alpha (sign 0 B)
+          (Alpha (sign 0 C)
+             (Leaf (((sign 0 B); nil)::((sign 0 C); nil)::lN) nil 0 nil nil)))).
+
+Definition derived4
+  (B : LF)
+  (lN : list (pair SLF (list SLF))) :=
+  Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil).
+
+Definition derived5
+  (B : LF)
+  (lN : list (pair SLF (list SLF))) :=
+  Beta
+    (Alpha (sign 2 B) (Leaf (((sign 2 B); nil)::lN) nil 0 nil nil))
+    (Alpha (sign 0 B) (Leaf (((sign 0 B); nil)::lN) nil 0 nil nil)).
+
+Definition derived6
+  (B : LF)
+  (lN : list (pair SLF (list SLF))) :=
+  Beta
+    (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil))
+    (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil)).
+
+Definition closeBranch : btree SLF :=
+  Alpha (sign 0 (Atom "p"))
+    (Alpha (sign 1 (Atom "p"))
+       (Leaf nil nil 0 nil nil)).
+
+Definition derivedDriver
+  (s : nat)
+  (A : LF)
+  (lN : list (pair SLF (list SLF)))
+  : stt SLF SLF
+  :=
+  match A with
+  | B /\ C =>
+      if isContradiction A then
+        if Nat.eqb s 2 then
+          state _ _ (derived1 B C lN) nil nil
+        else
+          if Nat.eqb s 0 then
+            state _ _ (derived2 B C lN) nil nil
+          else
+            state _ _ (Conj_rule s B C lN) nil nil
+      else
+        if andb (isBola B) (isBola C) then
+          if Nat.eqb s 2 then
+            state _ _ (derived3 B C lN) nil nil
+          else
+            if Nat.eqb s 1 then
+              state _ _ (closeBranch) nil nil
+            else
+              state _ _ (derived6 B lN) nil nil
+        else
+          state _ _ (Conj_rule s B C lN) nil nil
+  | ~ B =>
+      if isBola A then
+        if Nat.eqb s 0 then state _ _ (derived4 B lN) nil nil
+        else
+          if Nat.eqb s 1 then state _ _ (closeBranch) nil nil
+          else state _ _ (derived5 B lN) nil nil
+      else
+        state _ _ (Neg_rule s B lN) nil nil
+  | _ => state _ _ (Leaf nil nil 0 nil nil) nil nil
+  end.
+
 Definition C1_Tableau
   (snapshot : btree SLF)
   (lc : list (check SLF))
@@ -219,6 +341,32 @@ Definition C1_Tableau
       end
   end.
 
+Definition C1_Tableau_optimal
+  (snapshot : btree SLF)
+  (lc : list (check SLF))
+  (listNodes : list (pair SLF (list SLF)))
+  (listR : list SLF)
+  (loop_counter1 : nat)
+  (cmodels : list (list SLF))
+  (lvals : list SLF)
+  (m : list (mem SLF))
+  (p : parameters) :=
+  match listNodes with
+  | nil => state _ _ (Leaf nil nil 0 nil nil) lc m
+  | h::tl =>
+      let toExpand := proj_l h in
+      match toExpand with
+      | sign s A =>
+          match A with
+          | Atom _ => state _ _ (Leaf (explode listNodes) nil 0 nil nil) nil nil
+          | ~ B => derivedDriver s A (explode listNodes)
+          | B /\ C => derivedDriver s A (explode listNodes)
+          | B \/ C => state _ _ (Disj_rule s B C (explode listNodes)) nil nil
+          | B -> C => state _ _ (Impl_rule s B C (explode listNodes)) nil nil
+          end
+      end
+  end.
+
 Fixpoint makeInitialTree
   (listNodes lNcp : list (pair SLF (list SLF))) :=
   match listNodes with
@@ -237,20 +385,11 @@ Definition makeC1 (A : LF) (deepness : nat) :=
   let trees := make _ _ C1_Tableau (makeInitialTree lN lN) deepness in
   pop trees (Leaf nil nil 0 nil nil).
 
-(* Check if A = B /\ ~B OR A = ~B /\ B*)
-Definition isContradiction (A : LF) :=
-  match A with
-  | B /\ C =>
-      let comp :=
-        (fun P Q =>
-           match Q with
-           | ~ R => eqb_lf P R
-           | _ => false
-           end)
-      in
-      orb (comp B C) (comp C B)
-  | _ => false
-  end.
+Definition makeC1_optimal (A : LF) (deepness : nat) :=
+  let lN := [((sign 0 A); nil)] in
+  let initialTree := makeInitialTree lN lN in
+  let trees := make _ _ C1_Tableau_optimal (makeInitialTree lN lN) deepness in
+  pop trees (Leaf nil nil 0 nil nil).
 
 Compute isContradiction (~p0 /\ p1).
 
@@ -258,7 +397,7 @@ Definition cond2 (A : SLF) :=
   match A with
   | sign s P => andb (Nat.eqb s 1) (isContradiction P)
   end.
-        
+
 Definition contra (A B : SLF) :=
   match A, B with
   | sign L P, sign L' Q =>
@@ -295,14 +434,29 @@ Definition propag_consist_impl_2 :=
 
 Definition propag_consist_conj_3 :=
   ((cngen2 p0 3) /\ (cngen2 p1 3)) -> (cngen2 (p0 /\ p1) 3).
+Definition propag_consist_disj_3 :=
+  ((cngen2 p0 3) /\ (cngen2 p1 3)) -> (cngen2 (p0 \/ p1) 3).
+Definition propag_consist_impl_3 :=
+  ((cngen2 p0 3) /\ (cngen2 p1 3)) -> (cngen2 (p0 -> p1) 3).
 
 Definition propag_consist_conj_4 :=
   ((cngen2 p0 4) /\ (cngen2 p1 4)) -> (cngen2 (p0 /\ p1) 4).
 
-Compute cngen2 p0 1.
-Compute propag_consist_conj_1.
-Compute closure (makeC1 (~~p0 -> p0) 20) contra.
+(**)
 
-Compute closure (makeC1 propag_consist_conj_1 20) contra.
-Compute closure (makeC1 propag_consist_disj_1 20) contra.
-Compute closure (makeC1 propag_consist_impl_1 20) contra.
+Compute List.length (parse (makeC1 propag_consist_conj_1 20) nil).
+Compute List.length (parse (makeC1 propag_consist_disj_1 20) nil).
+Compute List.length (parse (makeC1 propag_consist_impl_1 20) nil).
+
+Compute List.length (parse (makeC1_optimal propag_consist_conj_1 20) nil).
+Compute List.length (parse (makeC1_optimal propag_consist_disj_1 20) nil).
+Compute List.length (parse (makeC1_optimal propag_consist_impl_1 20) nil).
+
+Compute closure (makeC1 propag_consist_conj_2 30) contra.
+Compute closure (makeC1 propag_consist_disj_2 20) contra.
+Compute closure (makeC1 propag_consist_impl_2 20) contra.
+
+Compute closure (makeC1_optimal propag_consist_conj_1 20) contra.
+Compute closure (makeC1_optimal propag_consist_disj_1 20) contra.
+Compute closure (makeC1_optimal propag_consist_impl_1 20) contra.
+
