@@ -532,3 +532,12 @@ Fixpoint isElementInList
       if cmp h el then true
       else isElementInList tl el cmp
   end.
+
+Fixpoint reverseListOrder
+  {X : Type}
+  (l : list X)
+  :=
+  match l with
+  | nil => nil
+  | h::tl => (reverseListOrder tl)++(h::nil)
+  end.

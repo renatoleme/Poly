@@ -458,16 +458,30 @@ Fixpoint makeInitialTree
 
 Compute pop [1;2;3] 2.
 
-Fixpoint makeC1_aux (t : btree SLF) (deepness : nat) :=
+Fixpoint leafsClean (t : btree SLF) :=
+  match t with
+  | Leaf lN _ _ _ _ => Nat.eqb (List.length lN) 0
+  | Alpha _ nT =>
+      leafsClean nT
+  | Beta nT1 nT2 =>
+      andb
+        (leafsClean nT1)
+        (leafsClean nT2)
+  end.
+
+Fixpoint makeC1_aux (t : btree SLF) (deepness : list nat) :=
   match deepness with
-  | O => pop (make _ _ C1_Tableau t deepness) (Leaf nil nil 0 nil nil)
-  | S n =>
-      let ntree := pop (make _ _ C1_Tableau t deepness) (Leaf nil nil 0 nil nil) in
+  | nil => t
+  | h::tl =>
+      let ntree := pop (make _ _ C1_Tableau t h) (Leaf nil nil 0 nil nil) in
       let opt_tree := (lFBTC ntree contra) in
-      if closure opt_tree contra then
+      if orb
+           (closure opt_tree contra)
+           (leafsClean opt_tree)
+      then
         opt_tree
       else
-        makeC1_aux opt_tree n
+        makeC1_aux opt_tree tl
   end.
 
 Fixpoint makeC1_optimal_aux (t : btree SLF) (deepness : list nat) :=
@@ -476,7 +490,10 @@ Fixpoint makeC1_optimal_aux (t : btree SLF) (deepness : list nat) :=
   | h::tl =>
       let ntree := pop (make _ _ C1_Tableau_optimal t h) (Leaf nil nil 0 nil nil) in
       let opt_tree := (lFBTC ntree contra) in
-      if closure opt_tree contra then
+      if orb
+           (closure opt_tree contra)
+           (leafsClean opt_tree)
+      then
         opt_tree
       else
         makeC1_optimal_aux opt_tree tl
@@ -485,18 +502,8 @@ Fixpoint makeC1_optimal_aux (t : btree SLF) (deepness : list nat) :=
 Definition makeC1 (A : LF) (deepness : nat) :=
   let lN := [((sign 0 A); nil)] in
   let initialTree := makeInitialTree lN lN in
-  makeC1_aux initialTree deepness.
-
-Fixpoint reverseListOrder
-  {X : Type}
-  (l : list X)
-  :=
-  match l with
-  | nil => nil
-  | h::tl => (reverseListOrder tl)++(h::nil)
-  end.
-
-Compute reverseListOrder [1;2;3;4;5].
+  let deep := reverseListOrder (upto deepness) in
+  makeC1_aux initialTree deep.
 
 Definition makeC1_optimal (A : LF) (deepness : nat) :=
   let lN := [((sign 0 A); nil)] in
@@ -504,14 +511,14 @@ Definition makeC1_optimal (A : LF) (deepness : nat) :=
   let deep := reverseListOrder (upto deepness) in
   makeC1_optimal_aux initialTree deep.
 
-Definition A0 := (p1 -> ~~p1).
+Definition A0 := ((~p1 /\ p1) -> p2).
 
-Compute (makeC1_optimal A0 10).
+Compute (makeC1_optimal A0 20).
 
 (* EXAMPLES *)
 
 Definition propag_consist_conj_1 :=
-  ((cngen2 p0 1) /\ (cngen2 p1 1)) -> (cngen2 (p0 /\ p1) 1).
+  ~((cngen2 p0 1) /\ (cngen2 p1 1)) -> (cngen2 (p0 /\ p1) 1).
 Definition propag_consist_disj_1 :=
   ((cngen2 p0 1) /\ (cngen2 p1 1)) -> (cngen2 (p0 \/ p1) 1).
 Definition propag_consist_impl_1 :=
@@ -536,10 +543,10 @@ Definition propag_consist_conj_4 :=
 
 (**)
 
-Compute List.length (parse (makeC1_optimal propag_consist_conj_1 60) nil).
-Compute closure (makeC1_optimal propag_consist_disj_1 20) contra.
+Compute List.length (parse (makeC1_optimal propag_consist_conj_1 20) nil).
+Compute closure (makeC1_optimal propag_consist_conj_1 20) contra.
 
-Compute (makeC1_optimal propag_consist_disj_1 20).
+Compute (makeC1_optimal propag_consist_conj_1 20).
 
 Compute List.length (parse (makeC1 propag_consist_disj_1 20) nil).
 Compute List.length (parse (makeC1_optimal propag_consist_impl_1 20) nil).
