@@ -266,16 +266,78 @@ Definition derived5
     (Alpha (sign 0 B) (Leaf (((sign 0 B); nil)::lN) nil 0 nil nil)).
 
 Definition derived6
-  (B : LF)
+  (B C : LF)
   (lN : list (pair SLF (list SLF))) :=
   Beta
     (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil))
-    (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil)).
+    (Alpha (sign 1 C) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil)).
 
 Definition closeBranch : btree SLF :=
   Alpha (sign 0 (Atom "p"))
     (Alpha (sign 1 (Atom "p"))
-       (Leaf nil nil 0 nil nil)).
+       (Leaf nil nil 1 nil nil)).
+
+(**)
+(* lFBTC (lookForBranchesToClose) *)
+(**)
+Fixpoint lFBTC_aux
+  (control : bool)
+  (n1 : SLF)
+  (t : btree SLF)
+  (cond : SLF -> SLF -> bool)
+  :=
+  match t with
+  | Leaf lN _ tag _ _ =>
+      if control then tag::nil
+      else nil
+  | Alpha n2 nT =>
+      if cond n1 n2 then lFBTC_aux true n1 nT cond
+      else lFBTC_aux control n1 nT cond
+  | Beta nT1 nT2 =>
+      (lFBTC_aux control n1 nT1 cond)++
+        (lFBTC_aux control n1 nT2 cond)
+  end.
+
+Fixpoint lFBTC_aux2
+  (t : btree SLF)
+  (cond : SLF -> SLF -> bool)
+  :=
+  match t with
+  | Leaf lN _ tag _ _ => nil
+  | Alpha N nT =>
+      (lFBTC_aux false N nT cond)++(lFBTC_aux2 nT cond)
+  | Beta nT1 nT2 =>
+      (lFBTC_aux2 nT1 cond)++
+        (lFBTC_aux2 nT2 cond)
+  end.
+    
+Compute isElementInList [1;2;3] 2 Nat.eqb.
+
+Fixpoint lFBTC_aux1
+  (t : btree SLF)
+  (l : list nat)
+  :=
+  match t with
+  | Leaf lN _ tag _ _ =>
+      if negb (Nat.eqb (List.length lN) 0) then
+        if isElementInList l tag Nat.eqb then closeBranch
+        else Leaf lN nil 0 nil nil
+      else Leaf nil nil tag nil nil
+  | Alpha N nT =>
+      Alpha N (lFBTC_aux1 nT l)
+  | Beta nT1 nT2 =>
+      Beta
+        (lFBTC_aux1 nT1 l)
+        (lFBTC_aux1 nT2 l)
+  end.
+
+Definition lFBTC
+  (t : btree SLF)
+  (cond : SLF -> SLF -> bool)
+  :=
+  let taggedT := tagLeafs t in
+  let lClosed := lFBTC_aux2 taggedT cond in
+  lFBTC_aux1 taggedT lClosed.
 
 Definition derivedDriver
   (s : nat)
@@ -301,7 +363,7 @@ Definition derivedDriver
             if Nat.eqb s 1 then
               state _ _ (closeBranch) nil nil
             else
-              state _ _ (derived6 B lN) nil nil
+              state _ _ (derived6 B C lN) nil nil
         else
           state _ _ (Conj_rule s B C lN) nil nil
   | ~ B =>
@@ -319,7 +381,7 @@ Definition C1_Tableau
   (snapshot : btree SLF)
   (lc : list (check SLF))
   (listNodes : list (pair SLF (list SLF)))
-  (listR : list SLF)
+  (branch : list SLF)
   (loop_counter1 : nat)
   (cmodels : list (list SLF))
   (lvals : list SLF)
@@ -345,7 +407,7 @@ Definition C1_Tableau_optimal
   (snapshot : btree SLF)
   (lc : list (check SLF))
   (listNodes : list (pair SLF (list SLF)))
-  (listR : list SLF)
+  (branch : list SLF)
   (loop_counter1 : nat)
   (cmodels : list (list SLF))
   (lvals : list SLF)
@@ -367,32 +429,6 @@ Definition C1_Tableau_optimal
       end
   end.
 
-Fixpoint makeInitialTree
-  (listNodes lNcp : list (pair SLF (list SLF))) :=
-  match listNodes with
-  | nil => Leaf lNcp nil 0 nil nil
-  | h::tl =>
-      match h with
-      | Pair s _ => Alpha s (makeInitialTree tl lNcp)
-      end
-  end.
-
-Compute pop [1;2;3] 2.
-
-Definition makeC1 (A : LF) (deepness : nat) :=
-  let lN := [((sign 0 A); nil)] in
-  let initialTree := makeInitialTree lN lN in
-  let trees := make _ _ C1_Tableau (makeInitialTree lN lN) deepness in
-  pop trees (Leaf nil nil 0 nil nil).
-
-Definition makeC1_optimal (A : LF) (deepness : nat) :=
-  let lN := [((sign 0 A); nil)] in
-  let initialTree := makeInitialTree lN lN in
-  let trees := make _ _ C1_Tableau_optimal (makeInitialTree lN lN) deepness in
-  pop trees (Leaf nil nil 0 nil nil).
-
-Compute isContradiction (~p0 /\ p1).
-
 Definition cond2 (A : SLF) :=
   match A with
   | sign s P => andb (Nat.eqb s 1) (isContradiction P)
@@ -410,11 +446,67 @@ Definition contra (A B : SLF) :=
       else false
   end.
 
-Definition A0 := (~~~p1 -> ~p1).
+Fixpoint makeInitialTree
+  (listNodes lNcp : list (pair SLF (list SLF))) :=
+  match listNodes with
+  | nil => Leaf lNcp nil 0 nil nil
+  | h::tl =>
+      match h with
+      | Pair s _ => Alpha s (makeInitialTree tl lNcp)
+      end
+  end.
 
-Compute parse (makeC1 A0 10) nil.
+Compute pop [1;2;3] 2.
 
-Compute closure (makeC1 A0 20) contra.
+Fixpoint makeC1_aux (t : btree SLF) (deepness : nat) :=
+  match deepness with
+  | O => pop (make _ _ C1_Tableau t deepness) (Leaf nil nil 0 nil nil)
+  | S n =>
+      let ntree := pop (make _ _ C1_Tableau t deepness) (Leaf nil nil 0 nil nil) in
+      let opt_tree := (lFBTC ntree contra) in
+      if closure opt_tree contra then
+        opt_tree
+      else
+        makeC1_aux opt_tree n
+  end.
+
+Fixpoint makeC1_optimal_aux (t : btree SLF) (deepness : list nat) :=
+  match deepness with
+  | nil => t
+  | h::tl =>
+      let ntree := pop (make _ _ C1_Tableau_optimal t h) (Leaf nil nil 0 nil nil) in
+      let opt_tree := (lFBTC ntree contra) in
+      if closure opt_tree contra then
+        opt_tree
+      else
+        makeC1_optimal_aux opt_tree tl
+  end.
+
+Definition makeC1 (A : LF) (deepness : nat) :=
+  let lN := [((sign 0 A); nil)] in
+  let initialTree := makeInitialTree lN lN in
+  makeC1_aux initialTree deepness.
+
+Fixpoint reverseListOrder
+  {X : Type}
+  (l : list X)
+  :=
+  match l with
+  | nil => nil
+  | h::tl => (reverseListOrder tl)++(h::nil)
+  end.
+
+Compute reverseListOrder [1;2;3;4;5].
+
+Definition makeC1_optimal (A : LF) (deepness : nat) :=
+  let lN := [((sign 0 A); nil)] in
+  let initialTree := makeInitialTree lN lN in
+  let deep := reverseListOrder (upto deepness) in
+  makeC1_optimal_aux initialTree deep.
+
+Definition A0 := (p1 -> ~~p1).
+
+Compute (makeC1_optimal A0 10).
 
 (* EXAMPLES *)
 
@@ -444,19 +536,21 @@ Definition propag_consist_conj_4 :=
 
 (**)
 
-Compute List.length (parse (makeC1 propag_consist_conj_1 20) nil).
-Compute List.length (parse (makeC1 propag_consist_disj_1 20) nil).
-Compute List.length (parse (makeC1 propag_consist_impl_1 20) nil).
+Compute List.length (parse (makeC1_optimal propag_consist_conj_1 60) nil).
+Compute closure (makeC1_optimal propag_consist_disj_1 20) contra.
 
-Compute List.length (parse (makeC1_optimal propag_consist_conj_1 20) nil).
-Compute List.length (parse (makeC1_optimal propag_consist_disj_1 20) nil).
+Compute (makeC1_optimal propag_consist_disj_1 20).
+
+Compute List.length (parse (makeC1 propag_consist_disj_1 20) nil).
 Compute List.length (parse (makeC1_optimal propag_consist_impl_1 20) nil).
+
+Compute closure (makeC1_optimal propag_consist_impl_1 20) contra.
 
 Compute closure (makeC1 propag_consist_conj_2 30) contra.
 Compute closure (makeC1 propag_consist_disj_2 20) contra.
 Compute closure (makeC1 propag_consist_impl_2 20) contra.
 
-Compute closure (makeC1_optimal propag_consist_conj_1 20) contra.
-Compute closure (makeC1_optimal propag_consist_disj_1 20) contra.
-Compute closure (makeC1_optimal propag_consist_impl_1 20) contra.
+Compute List.length (parse (makeC1 propag_consist_conj_1 20) nil).
+Compute List.length (parse (makeC1 propag_consist_disj_1 20) nil).
+Compute List.length (parse (makeC1 propag_consist_impl_1 20) nil).
 

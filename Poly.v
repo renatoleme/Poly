@@ -475,3 +475,60 @@ Definition closure
   :=
   let l := parse t nil in
   closure_aux1 l contra.
+
+(* more tools *)
+
+Fixpoint getFirstNEls {X : Type} (l : list X) (n : nat) (d : X) :=
+  match n with
+  | O => nil
+  | S m =>
+      let el := pop l d in
+      el::(getFirstNEls (explode l) m d)
+  end.
+
+Fixpoint getLastNEls {X : Type} (l : list X) (n : nat) :=
+  match n with
+  | O => l
+  | S m => getLastNEls (explode l) m
+  end.
+
+Fixpoint tagLeafs_aux
+  {X : Type}
+  (t : btree X)
+  (l : list nat)
+  :=
+  match t with
+  | Leaf lN _ _ _ _ =>
+      let tag := pop l 404 in
+      Leaf lN nil tag nil nil
+  | Alpha n2 nT =>
+      Alpha n2 (tagLeafs_aux nT l)
+  | Beta nT1 nT2 =>
+      let sizepnT1 := List.length (parse nT1 nil) in
+      let sizepnT2 := (List.length l) - List.length (parse nT2 nil) in
+      Beta
+        (tagLeafs_aux nT1 (getFirstNEls l sizepnT1 404))
+        (tagLeafs_aux nT2 (getLastNEls l sizepnT2))
+  end.
+
+Compute upto 12.
+
+Definition tagLeafs
+  {X : Type}
+  (t : btree X)
+  :=
+  let tags := upto (List.length (parse t nil)) in
+  tagLeafs_aux t tags. 
+
+Fixpoint isElementInList
+  {X : Type}
+  (l : list X)
+  (el : X)
+  (cmp : X -> X -> bool)
+  :=
+  match l with
+  | nil => false
+  | h::tl =>
+      if cmp h el then true
+      else isElementInList tl el cmp
+  end.
