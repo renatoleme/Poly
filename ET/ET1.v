@@ -632,16 +632,15 @@ Fixpoint tableau_aux (l : list LF) :=
       else (Node (T true h) 0)::(tableau_aux tl)
   end.
 
-Definition tableau (l : list LF) (deepness : nat) :=
+Definition createInitialTree (l : list LF) :=
   let listNodes := tableau_aux l in 
+  (makeInitialTree listNodes
+     (listNodeToListPair listNodes)).
+
+Definition oneStepTableau (t : btree node) :=
   pop
-    (make _ _
-       SemanticEcumenicalTableau
-       (makeInitialTree listNodes
-          (listNodeToListPair listNodes))
-       deepness)
-    (Leaf nil nil 0 nil nil)
-.
+    (make _ _ SemanticEcumenicalTableau t 1)
+    (Leaf nil nil 0 nil nil).
 
 Fixpoint reverseListOrder
   {X : Type}
@@ -656,20 +655,6 @@ Fixpoint reverseThisList {X : Type} (l : list (list X)) :=
   match l with
   | nil => nil
   | h::tl => (reverseListOrder h)::(reverseThisList tl)
-  end.
-
-Fixpoint parse
-  {X : Type}
-  (t : btree X)
-  (i : list X)
-  : list (list X)
-  := 
-  match t with
-  | Leaf _ _ _ _ _ => [i;nil]
-  | Alpha n nT =>
-      parse nT (n::i)
-  | Beta t1 t2 =>
-      parse t1 i ++ parse t2 i  
   end.
 
 Definition contra (A B : node) :=
@@ -726,10 +711,15 @@ Fixpoint closure_aux1 (l : list (list node)) :=
         andb (closure_aux3 h h) (closure_aux1 tl)
       else closure_aux1 tl
   end.
-           
+
+Compute flattenList [[1;2;3]].
+
 Definition closure (t : btree node) :=
   let l := parse t nil in
-  closure_aux1 l.
+  if Nat.eqb (List.length (flattenList l)) 0 then false 
+  else closure_aux1 l.
+
+Compute closure (Leaf [] [] 0 [] []).
 
 Fixpoint treeIsInLoop (t1 : btree node) :=
   match t1 with
@@ -1039,6 +1029,7 @@ Fixpoint getHypothesis (lF : list LF) :=
         h::(getHypothesis tl)
   end.
 
+(*
 Fixpoint search_aux (lF : list LF) (deepness : list nat) :=
   if Nat.eqb (List.length lF) 0 then []
   else
@@ -1052,33 +1043,40 @@ Fixpoint search_aux (lF : list LF) (deepness : list nat) :=
     end.
 
 Definition search (lF : list LF) :=
-  search_aux lF (reverseListOrder (upto 50)).
+  search_aux lF (reverseListOrder (upto 50)).*)
 
 Fixpoint auto_tableau_aux
   (l : list LF)
+  (t : btree node)
   (steps : list nat)
   (res : pair (btree node) (list node)) :=
   match steps with
   | nil => res
   | h::tl =>
-      let tree := tableau l h in
+      let tree := oneStepTableau t in
       if orb (closure tree) (treeIsInLoop tree) then Pair tree nil
       else
         let cmCandidates := getOnlyModels tree in
         let cm := search_aux2 (getHypothesis l) (getConclusion l P) cmCandidates in
         if Nat.eqb (List.length cm) 0 then
-          auto_tableau_aux l tl (Pair tree nil)
+          auto_tableau_aux l tree tl (Pair tree nil)
         else
           Pair (Leaf nil nil 0 nil nil) cm
   end.
 
 (* Output: bool X btree , onde bool é true iff btree is closed *)
-Definition auto_tableau (l : list LF) :=
+Definition auto_tableau (l : list LF) (displayTree : bool) :=
+  let initialTree := createInitialTree l in
   let response :=
-    auto_tableau_aux l
-      (reverseListOrder (upto 1000))
+    auto_tableau_aux
+      l
+      initialTree
+      ((listOf1 1000))
       (Pair (Leaf nil nil 0 nil nil) nil) in
-  Pair (closure (proj_l response)) response.
+  if displayTree then
+    Pair (closure (proj_l response)) response
+  else
+    Pair (closure (proj_l response)) (Pair (Leaf nil nil 0 nil nil) nil).
 
 (*******)
 
@@ -1105,4 +1103,4 @@ Definition p9 := ((~ (~ P)) /\ (~ (~ ( Q)))) <->i (~ (~ (P /\ ( Q)))). (* Pesado
 Definition p10 := ((~ (~ P)) ->i (~ (~ ( Q)))) <->i (~ (~ (P ->i ( Q)))). (* Pesado *)
 Definition p11 := ((~ (~ P)) ->i ( Q)) ->i ((~ ( Q)) ->i (~ P)).
 
-Compute auto_tableau [ec2_volta].
+Compute auto_tableau [ec5] false.

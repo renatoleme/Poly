@@ -434,15 +434,37 @@ Definition cond2 (A : SLF) :=
   | sign s P => andb (Nat.eqb s 1) (isContradiction P)
   end.
 
+Definition cond3 (A B : SLF) :=
+  match A, B with
+  | sign 0 P, (sign 0 Q | sign 2 Q) =>
+      let f :=
+        (fun A B =>
+           match A with
+           | P /\ Q =>
+               if andb (isBola P) (isBola Q) then
+                 orb (eqb_lf P B) (eqb_lf Q B)
+               else
+                 false
+           | _ => false
+           end
+        ) in
+      orb (f P Q) (f Q P)
+  | _, _ => false
+  end.
+
+Compute cond3 (sign 0 ((cngen2 p1 1) /\ (cngen2 p1 1))) (sign 0 (cngen2 p1 1)).
+
 Definition contra (A B : SLF) :=
   match A, B with
   | sign L P, sign L' Q =>
       if eqb_lf P Q then
         orb
-          (negb (Nat.eqb L L'))
+          (cond3 A B)
           (orb
-             (cond2 A)
-             (cond2 B))
+             (negb (Nat.eqb L L'))
+             (orb
+                (cond2 A)
+                (cond2 B)))
       else false
   end.
 
@@ -499,26 +521,40 @@ Fixpoint makeC1_optimal_aux (t : btree SLF) (deepness : list nat) :=
         makeC1_optimal_aux opt_tree tl
   end.
 
-Definition makeC1 (A : LF) (deepness : nat) :=
+Fixpoint listOf1 (size : nat) :=
+  match size with
+  | O => nil
+  | S n => 1::(listOf1 n)
+  end.
+
+Definition makeC1 (A : LF) (deepness : nat) (displayTree : bool) :=
   let lN := [((sign 0 A); nil)] in
   let initialTree := makeInitialTree lN lN in
-  let deep := reverseListOrder (upto deepness) in
-  makeC1_aux initialTree deep.
+  let deep := listOf1 deepness in
+  let result := makeC1_aux initialTree deep in
+  if displayTree then
+    (result; (closure result contra; List.length (parse result nil)))
+  else
+    ((Leaf nil nil 0 nil nil); (closure result contra; List.length (parse result nil))).
 
-Definition makeC1_optimal (A : LF) (deepness : nat) :=
+Definition makeC1_optimal (A : LF) (deepness : nat) (displayTree : bool) :=
   let lN := [((sign 0 A); nil)] in
   let initialTree := makeInitialTree lN lN in
-  let deep := reverseListOrder (upto deepness) in
-  makeC1_optimal_aux initialTree deep.
+  let deep := listOf1 deepness in
+  let result := makeC1_optimal_aux initialTree deep in
+  if displayTree then
+    (result; (closure result contra; List.length (parse result nil)))
+  else
+    ((Leaf nil nil 0 nil nil); (closure result contra; List.length (parse result nil))).
 
-Definition A0 := ((~p1 /\ p1) -> p2).
+Definition A0 := (~~p2 -> p2).
 
-Compute (makeC1_optimal A0 20).
+Compute makeC1_optimal A0 20 true.
 
 (* EXAMPLES *)
 
 Definition propag_consist_conj_1 :=
-  ~((cngen2 p0 1) /\ (cngen2 p1 1)) -> (cngen2 (p0 /\ p1) 1).
+  ((cngen2 p0 1) /\ (cngen2 p1 1)) -> (cngen2 (p0 /\ p1) 1).
 Definition propag_consist_disj_1 :=
   ((cngen2 p0 1) /\ (cngen2 p1 1)) -> (cngen2 (p0 \/ p1) 1).
 Definition propag_consist_impl_1 :=
@@ -541,23 +577,32 @@ Definition propag_consist_impl_3 :=
 Definition propag_consist_conj_4 :=
   ((cngen2 p0 4) /\ (cngen2 p1 4)) -> (cngen2 (p0 /\ p1) 4).
 
+Definition propag_consist_conj_5 :=
+  ((cngen2 p0 5) /\ (cngen2 p1 5)) -> (cngen2 (p0 /\ p1) 5).
+
+Definition propag_consist_conj_6 :=
+  ((cngen2 p0 6) /\ (cngen2 p1 6)) -> (cngen2 (p0 /\ p1) 6).
+
+Definition propag_consist_conj_7 :=
+  ((cngen2 p0 7) /\ (cngen2 p1 7)) -> (cngen2 (p0 /\ p1) 7).
+
+Definition propag_consist_conj_8 :=
+  ((cngen2 p0 8) /\ (cngen2 p1 8)) -> (cngen2 (p0 /\ p1) 8).
+
+
 (**)
+(*
+Compute makeC1_optimal propag_consist_conj_5 100 false.
+Compute makeC1_optimal propag_consist_conj_6 100 false.
 
-Compute List.length (parse (makeC1_optimal propag_consist_conj_1 20) nil).
-Compute closure (makeC1_optimal propag_consist_conj_1 20) contra.
+Compute makeC1_optimal propag_consist_conj_1 100 false.
+Compute makeC1_optimal propag_consist_conj_2 100 false.
+Compute makeC1_optimal propag_consist_conj_3 100 false.
+Compute makeC1_optimal propag_consist_conj_4 100 false.
 
-Compute (makeC1_optimal propag_consist_conj_1 20).
+Compute makeC1 propag_consist_conj_2 100 false.
+Compute makeC1 propag_consist_conj_2 100 false.
+Compute makeC1 propag_consist_conj_2 100 false.
+Compute makeC1 propag_consist_conj_2 100 false.
 
-Compute List.length (parse (makeC1 propag_consist_disj_1 20) nil).
-Compute List.length (parse (makeC1_optimal propag_consist_impl_1 20) nil).
-
-Compute closure (makeC1_optimal propag_consist_impl_1 20) contra.
-
-Compute closure (makeC1 propag_consist_conj_2 30) contra.
-Compute closure (makeC1 propag_consist_disj_2 20) contra.
-Compute closure (makeC1 propag_consist_impl_2 20) contra.
-
-Compute List.length (parse (makeC1 propag_consist_conj_1 20) nil).
-Compute List.length (parse (makeC1 propag_consist_disj_1 20) nil).
-Compute List.length (parse (makeC1 propag_consist_impl_1 20) nil).
-
+*)

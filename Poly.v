@@ -6,6 +6,12 @@ Require Import Coq.Init.Nat.
 
 (** Polymorphic trees **)
 
+Fixpoint listOf1 (size : nat) :=
+  match size with
+  | O => nil
+  | S n => 1::(listOf1 n)
+  end.
+
 (** Pair [mixed types] **)
 
 Inductive pair (X Y : Type) :=
@@ -540,4 +546,13 @@ Fixpoint reverseListOrder
   match l with
   | nil => nil
   | h::tl => (reverseListOrder tl)++(h::nil)
+  end.
+
+Fixpoint flattenList
+  {X : Type}
+  (l : list (list X))
+  :=
+  match l with
+  | nil => nil
+  | h::tl => h++(flattenList tl)
   end.
