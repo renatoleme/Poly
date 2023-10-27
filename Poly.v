@@ -41,12 +41,14 @@ Definition pair_eqb {X Y : Type}
 
 Inductive mem (X : Type) :=
 | empty
-| record (i : nat) (v : X).
+| record (i : nat) (v : X)
+| listNat : list nat -> mem X.
 
 Definition getRecordValueFromMemory (X : Type) (m : mem X) (default : X) :=
   match m with
   | empty _ => default
   | record _ i v => v
+  | _ => default
   end.
 
 Fixpoint getRecordValueFromIndex (X : Type) (lm : list (mem X)) (k : nat) (default : X) :=
@@ -55,6 +57,7 @@ Fixpoint getRecordValueFromIndex (X : Type) (lm : list (mem X)) (k : nat) (defau
   | h::tl => match h with
              | empty _ => getRecordValueFromIndex _ tl k default
              | record _ i v => if (beq_nat k i) then v else getRecordValueFromIndex _ tl k default
+             | _ => getRecordValueFromIndex _ tl k default
              end
   end.
 
@@ -62,6 +65,7 @@ Definition getIndexFromMemory (X : Type) (m : mem X) :=
   match m with
   | empty _ => 0
   | record _ i v => i
+  | _ => 0
   end.
 
 Inductive btree (X: Type) :=
