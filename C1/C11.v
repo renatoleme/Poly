@@ -83,6 +83,34 @@ Fixpoint cngen2 (A : LF) (n : nat) : LF :=
   | S m => (cngen2 A m) /\ (cngen A (S m))
   end.
 
+Fixpoint whichIndex (A : LF) :=
+  match A with
+  | ~ B =>
+      match B with
+      | C /\ D =>
+          if eqb_lf (selectContra C D) C then
+            1 + (whichIndex C)
+          else
+            1 + (whichIndex D)
+      | _ => 0
+      end
+  | _ => 0
+  end.
+
+Fixpoint whichFormula (A : LF) (n : nat) :=
+  match n with
+  | O => A
+  | S m =>
+      match A with
+      | ~ B =>
+          match B with
+          | C /\ D => whichFormula (selectContra C D) m
+          | _ => A
+          end
+      | _ => A
+      end
+  end.
+
 (* 
 
 Given a Cn, we will adopt the following convention: 
@@ -208,13 +236,15 @@ Definition Impl_rule
 
 (* DERIVED RULES *)
 
-Definition isBola (A : LF) :=
-  match A with
+Definition isBola (A : LF) := Nat.eqb (whichIndex A) 1.
+  (*match A with
   | ~ B => isContradiction B
   | _ => false
-  end.
+  end.*)
 
-Compute isBola (~((~(p1 /\ ~p1)) /\ ~(~(p1 /\ ~p1)))).
+
+Compute isBola (cngen (p0) 1).
+Compute whichIndex (~((~(p1 /\ ~p1)) /\ ~(~(p1 /\ ~p1)))).
 
 Definition derived1
   (B C : LF)
@@ -357,21 +387,24 @@ Definition derivedDriver
             state _ _ (Conj_rule s B C lN) nil nil
       else
         if andb (isBola B) (isBola C) then
+          let baseB := whichFormula B 1 in
+          let baseC := whichFormula C 1 in
           if Nat.eqb s 2 then
-            state _ _ (derived3 B C lN) nil nil
+            state _ _ (derived3 baseB baseC lN) nil nil
           else
             if Nat.eqb s 1 then
               state _ _ (closeBranch) nil nil
             else
-              state _ _ (derived6 B C lN) nil nil
+              state _ _ (derived6 baseB baseC lN) nil nil
         else
           state _ _ (Conj_rule s B C lN) nil nil
   | ~ B =>
       if isBola A then
-        if Nat.eqb s 0 then state _ _ (derived4 B lN) nil nil
+        let base := whichFormula A 1 in
+        if Nat.eqb s 0 then state _ _ (derived4 base lN) nil nil
         else
           if Nat.eqb s 1 then state _ _ (closeBranch) nil nil
-          else state _ _ (derived5 B lN) nil nil
+          else state _ _ (derived5 base lN) nil nil
       else
         state _ _ (Neg_rule s B lN) nil nil
   | _ => state _ _ (Leaf nil nil 0 nil nil) nil nil
@@ -457,15 +490,13 @@ Compute cond3 (sign 0 ((cngen2 p1 1) /\ (cngen2 p1 1))) (sign 0 (cngen2 p1 1)).
 Definition contra (A B : SLF) :=
   match A, B with
   | sign L P, sign L' Q =>
-      if eqb_lf P Q then
         orb
           (cond3 A B)
           (orb
-             (negb (Nat.eqb L L'))
+             (andb (eqb_lf P Q) (negb (Nat.eqb L L')))
              (orb
                 (cond2 A)
                 (cond2 B)))
-      else false
   end.
 
 Fixpoint makeInitialTree
@@ -589,6 +620,13 @@ Definition propag_consist_conj_7 :=
 Definition propag_consist_conj_8 :=
   ((cngen2 p0 8) /\ (cngen2 p1 8)) -> (cngen2 (p0 /\ p1) 8).
 
+
+Compute makeC1_optimal (propag_consist_disj_1) 100 true.
+
+Compute makeC1_optimal propag_consist_conj_4 100 false.
+
+
+Compute makeC1_optimal (((((p0 /\ ~p0) /\ ~(p0 /\ ~p0)) -> ~~p0))) 100 true.
 
 (**)
 (*

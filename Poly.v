@@ -290,7 +290,11 @@ Fixpoint expand
   (lc : list (check X))
   : stt X Y :=
   match t with
-  | Leaf listNodes listR counter cmodels lvals => apply snapshot lc listNodes listR counter cmodels lvals m params
+  | Leaf listNodes listR counter cmodels lvals =>
+      if negb (Nat.eqb (List.length listNodes) 0) then
+        apply snapshot lc listNodes listR counter cmodels lvals m params
+      else
+        state X Y (Leaf listNodes listR counter cmodels lvals) lc m
   | Alpha N nt =>
       let next := (expand X Y apply nt snapshot params m lc) in
       state X Y
@@ -508,9 +512,9 @@ Fixpoint tagLeafs_aux
   (l : list nat)
   :=
   match t with
-  | Leaf lN _ _ _ _ =>
+  | Leaf lN _ _ _ lvals =>
       let tag := pop l 404 in
-      Leaf lN nil tag nil nil
+      Leaf lN nil tag nil lvals
   | Alpha n2 nT =>
       Alpha n2 (tagLeafs_aux nT l)
   | Beta nT1 nT2 =>
@@ -528,7 +532,7 @@ Definition tagLeafs
   (t : btree X)
   :=
   let tags := upto (List.length (parse t nil)) in
-  tagLeafs_aux t tags. 
+  tagLeafs_aux t tags.
 
 Fixpoint isElementInList
   {X : Type}
