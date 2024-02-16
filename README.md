@@ -4,6 +4,7 @@ Methods for tableaux deductive system in Coq. With [Poly.v](Poly.v) one can impl
 
 - [x] Classical Propositional Logic (CL)
 - [x] Ecumenical Propositional Logic ($E_T$)
+- [x] Paraconsistent $C_n$ Logics 
 
 $E_T$ tableau system is implemented according to the description given in [1].
 
