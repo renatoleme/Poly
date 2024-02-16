@@ -6,7 +6,6 @@ CONIGLIO, Marcelo E.; TOLEDO, Guilherme V. Two Decision Procedures for da Costaâ
 
 *)
 
-Add LoadPath "../" as Main.
 Require Import Main.Poly.
 Require Import List.
 Require Import String.
@@ -88,10 +87,13 @@ Fixpoint whichIndex (A : LF) :=
   | ~ B =>
       match B with
       | C /\ D =>
-          if eqb_lf (selectContra C D) C then
-            1 + (whichIndex C)
+          if isContradiction B then
+            if eqb_lf (selectContra C D) C then
+              1 + (whichIndex C)
+            else
+              1 + (whichIndex D)
           else
-            1 + (whichIndex D)
+            0
       | _ => 0
       end
   | _ => 0
@@ -113,13 +115,11 @@ Fixpoint whichFormula (A : LF) (n : nat) :=
 
 (* 
 
-Given a Cn, we will adopt the following convention: 
+We will adopt the following convention: 
 
 0 : False 
-.
-.
-.
-n+1 : True
+1 : t0
+2 : True
 
 *)
 
@@ -127,56 +127,72 @@ Definition Neg_rule
   (s : nat)
   (A : LF)
   (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
   : btree SLF :=
   match s with
   | 0 => (* F *)
-      Alpha (sign 2 A) (Leaf (((sign 2 A); nil)::lN) nil 0 nil nil)
+      Alpha (sign 2 A) (Leaf (((sign 2 A); nil)::lN) ((sign 2 A)::branch) 0 nil nil)
   | 1 => (* t *)
-      Alpha (sign 1 A) (Leaf (((sign 1 A); nil)::lN) nil 0 nil nil)
+      Alpha (sign 1 A) (Leaf (((sign 1 A); nil)::lN) ((sign 1 A)::branch) 0 nil nil)
   | _ => (* T *)
       Beta
-        (Alpha (sign 0 A) (Leaf (((sign 0 A); nil)::lN) nil 0 nil nil))
-        (Alpha (sign 1 A) (Leaf (((sign 1 A); nil)::lN) nil 0 nil nil))
+        (Alpha (sign 0 A) (Leaf (((sign 0 A); nil)::lN) ((sign 0 A)::branch) 0 nil nil))
+        (Alpha (sign 1 A) (Leaf (((sign 1 A); nil)::lN) ((sign 1 A)::branch) 0 nil nil))
   end.
 
 Definition Conj_rule
   (s : nat)
   (A B : LF)
   (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
   : btree SLF :=
   match s with
   | 0 => (* F *)
       Beta
-        (Alpha (sign 0 A) (Leaf (((sign 0 A); nil)::lN) nil 0 nil nil))
-        (Alpha (sign 0 B) (Leaf (((sign 0 B); nil)::lN) nil 0 nil nil))
+        (Alpha (sign 0 A) (Leaf (((sign 0 A); nil)::lN) ((sign 0 A)::branch) 0 nil nil))
+        (Alpha (sign 0 B) (Leaf (((sign 0 B); nil)::lN) ((sign 0 B)::branch) 0 nil nil))
   | 1 => (* t *)
       Beta
         (Alpha (sign 2 A)
            (Alpha (sign 1 B)
-              (Leaf (((sign 2 A); nil)::((sign 1 B); nil)::lN) nil 0 nil nil)))
+              (Leaf
+                 (((sign 2 A); nil)::((sign 1 B); nil)::lN)
+                 ((sign 2 A)::(sign 1 B)::branch) 0 nil nil)))
         (Beta
            (Alpha (sign 1 A)
               (Alpha (sign 2 B)
-                 (Leaf (((sign 1 A); nil)::((sign 2 B); nil)::lN) nil 0 nil nil)))
+                 (Leaf
+                    (((sign 1 A); nil)::((sign 2 B); nil)::lN)
+                    ((sign 1 A)::(sign 2 B)::branch) 0 nil nil)))
            (Alpha (sign 1 A)
               (Alpha (sign 1 B)
-                 (Leaf (((sign 1 A); nil)::((sign 1 B); nil)::lN) nil 0 nil nil))))
+                 (Leaf
+                    (((sign 1 A); nil)::((sign 1 B); nil)::lN)
+                    ((sign 1 A)::(sign 1 B)::branch) 0 nil nil))))
   | _ => (* T *)
        Beta
         (Beta
            (Alpha (sign 2 A)
               (Alpha (sign 2 B)
-                 (Leaf (((sign 2 A); nil)::((sign 2 B); nil)::lN) nil 0 nil nil)))
+                 (Leaf
+                    (((sign 2 A); nil)::((sign 2 B); nil)::lN)
+                    ((sign 2 A)::(sign 2 B)::branch) 0 nil nil)))
            (Alpha (sign 2 A)
               (Alpha (sign 1 B)
-                 (Leaf (((sign 2 A); nil)::((sign 1 B); nil)::lN) nil 0 nil nil))))
+                 (Leaf
+                    (((sign 2 A); nil)::((sign 1 B); nil)::lN)
+                    ((sign 2 A)::(sign 1 B)::branch) 0 nil nil))))
         (Beta
            (Alpha (sign 1 A)
               (Alpha (sign 2 B)
-                 (Leaf (((sign 1 A); nil)::((sign 2 B); nil)::lN) nil 0 nil nil)))
+                 (Leaf
+                    (((sign 1 A); nil)::((sign 2 B); nil)::lN)
+                    ((sign 1 A)::(sign 2 B)::branch) 0 nil nil)))
            (Alpha (sign 1 A)
               (Alpha (sign 1 B)
-                 (Leaf (((sign 1 A); nil)::((sign 1 B); nil)::lN) nil 0 nil nil))))
+                 (Leaf
+                    (((sign 1 A); nil)::((sign 1 B); nil)::lN)
+                    ((sign 1 A)::(sign 1 B)::branch) 0 nil nil))))
   end.
 
 Compute proj_r (1;2).
@@ -185,63 +201,68 @@ Definition Disj_rule
   (s : nat)
   (A B : LF)
   (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
   : btree SLF :=
   match s with
   | 0 => (* F *)
       Alpha (sign 0 A)
         (Alpha (sign 0 B)
-           (Leaf (((sign 0 A); nil)::((sign 0 B); nil)::lN) nil 0 nil nil))
+           (Leaf
+              (((sign 0 A); nil)::((sign 0 B); nil)::lN)
+              ((sign 0 A)::(sign 0 B)::branch) 0 nil nil))
   | 1 => (* t *)
       Beta
-        (Alpha (sign 1 A) (Leaf (((sign 1 A); nil)::lN) nil 0 nil nil))
-        (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil))
+        (Alpha (sign 1 A) (Leaf (((sign 1 A); nil)::lN) ((sign 1 A)::branch) 0 nil nil))
+        (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) ((sign 1 B)::branch) 0 nil nil))
   | _ => (* T *)
       Beta
         (Beta
-           (Alpha (sign 2 A) (Leaf (((sign 2 A); nil)::lN) nil 0 nil nil))
-           (Alpha (sign 1 A) (Leaf (((sign 1 A); nil)::lN) nil 0 nil nil)))
+           (Alpha (sign 2 A) (Leaf (((sign 2 A); nil)::lN) ((sign 2 A)::branch) 0 nil nil))
+           (Alpha (sign 1 A) (Leaf (((sign 1 A); nil)::lN) ((sign 1 A)::branch) 0 nil nil)))
         (Beta
-           (Alpha (sign 2 B) (Leaf (((sign 2 B); nil)::lN) nil 0 nil nil))
-           (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil)))
+           (Alpha (sign 2 B) (Leaf (((sign 2 B); nil)::lN) ((sign 2 B)::branch) 0 nil nil))
+           (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) ((sign 1 B)::branch) 0 nil nil)))
   end.
 
 Definition Impl_rule
   (s : nat)
   (A B : LF)
   (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
   : btree SLF :=
   match s with
   | 0 => (* F *)
       Beta
         (Alpha (sign 2 A)
            (Alpha (sign 0 B)
-              (Leaf (((sign 2 A); nil)::((sign 0 B); nil)::lN) nil 0 nil nil)))
+              (Leaf
+                 (((sign 2 A); nil)::((sign 0 B); nil)::lN)
+                 ((sign 2 A)::(sign 0 B)::branch) 0 nil nil)))
         (Alpha (sign 1 A)
            (Alpha (sign 0 B)
-              (Leaf (((sign 1 A); nil)::((sign 0 B); nil)::lN) nil 0 nil nil)))
+              (Leaf
+                 (((sign 1 A); nil)::((sign 0 B); nil)::lN)
+                 ((sign 1 A)::(sign 0 B)::branch) 0 nil nil)))
   | 1 => (* t *)
       Beta
         (Alpha (sign 1 A)
            (Alpha (sign 2 B)
-              (Leaf (((sign 1 A); nil)::((sign 2 B); nil)::lN) nil 0 nil nil)))
+              (Leaf
+                 (((sign 1 A); nil)::((sign 2 B); nil)::lN)
+                 ((sign 1 A)::(sign 2 B)::branch) 0 nil nil)))
         (Alpha (sign 1 B)
-           (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil))
+           (Leaf (((sign 1 B); nil)::lN) ((sign 1 B)::branch) 0 nil nil))
   | _ => (* T *)
       Beta
-        (Alpha (sign 0 A) (Leaf (((sign 0 A); nil)::lN) nil 0 nil nil))
+        (Alpha (sign 0 A) (Leaf (((sign 0 A); nil)::lN) ((sign 0 A)::branch) 0 nil nil))
         (Beta
-           (Alpha (sign 2 B) (Leaf (((sign 2 B); nil)::lN) nil 0 nil nil))
-           (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil)))
+           (Alpha (sign 2 B) (Leaf (((sign 2 B); nil)::lN) ((sign 2 B)::branch) 0 nil nil))
+           (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) ((sign 1 B)::branch) 0 nil nil)))
   end.
 
 (* DERIVED RULES *)
 
 Definition isBola (A : LF) := Nat.eqb (whichIndex A) 1.
-  (*match A with
-  | ~ B => isContradiction B
-  | _ => false
-  end.*)
-
 
 Compute isBola (cngen (p0) 1).
 Compute whichIndex (~((~(p1 /\ ~p1)) /\ ~(~(p1 /\ ~p1)))).
@@ -249,58 +270,79 @@ Compute whichIndex (~((~(p1 /\ ~p1)) /\ ~(~(p1 /\ ~p1)))).
 Definition derived1
   (B C : LF)
   (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
   :=
   let contradicted := selectContra B C in
   Alpha (sign 1 contradicted)
-    (Leaf (((sign 1 contradicted); nil)::lN) nil 0 nil nil).
+    (Leaf
+       (((sign 1 contradicted); nil)::lN)
+       ((sign 1 contradicted)::branch) 0 nil nil).
 
 Definition derived2
   (B C : LF)
   (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
   :=
   let contradicted := selectContra B C in
   Beta
-    (Alpha (sign 2 contradicted) (Leaf (((sign 2 contradicted); nil)::lN) nil 0 nil nil))
-    (Alpha (sign 0 contradicted) (Leaf (((sign 0 contradicted); nil)::lN) nil 0 nil nil)).
+    (Alpha (sign 2 contradicted)
+       (Leaf (((sign 2 contradicted); nil)::lN) ((sign 2 contradicted)::branch) 0 nil nil))
+    (Alpha (sign 0 contradicted)
+       (Leaf (((sign 0 contradicted); nil)::lN) ((sign 0 contradicted)::branch) 0 nil nil)).
 
 Definition derived3
   (B C : LF)
   (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
   :=
   Beta
     (Beta
        (Alpha (sign 2 B)
           (Alpha (sign 2 C)
-             (Leaf (((sign 2 B); nil)::((sign 2 C); nil)::lN) nil 0 nil nil)))
+             (Leaf
+                (((sign 2 B); nil)::((sign 2 C); nil)::lN)
+                ((sign 2 B)::(sign 2 C)::branch) 0 nil nil)))
        (Alpha (sign 2 B)
           (Alpha (sign 0 C)
-             (Leaf (((sign 2 B); nil)::((sign 0 C); nil)::lN) nil 0 nil nil))))
+             (Leaf
+                (((sign 2 B); nil)::((sign 0 C); nil)::lN)
+                ((sign 2 B)::(sign 0 C)::branch) 0 nil nil))))
     (Beta
        (Alpha (sign 0 B)
           (Alpha (sign 2 C)
-             (Leaf (((sign 0 B); nil)::((sign 2 C); nil)::lN) nil 0 nil nil)))
+             (Leaf
+                (((sign 0 B); nil)::((sign 2 C); nil)::lN)
+                ((sign 0 B)::(sign 2 C)::branch) 0 nil nil)))
        (Alpha (sign 0 B)
           (Alpha (sign 0 C)
-             (Leaf (((sign 0 B); nil)::((sign 0 C); nil)::lN) nil 0 nil nil)))).
+             (Leaf
+                (((sign 0 B); nil)::((sign 0 C); nil)::lN)
+                ((sign 0 B)::(sign 0 C)::branch) 0 nil nil)))).
 
 Definition derived4
   (B : LF)
-  (lN : list (pair SLF (list SLF))) :=
-  Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil).
+  (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
+  :=
+  Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) ((sign 1 B)::branch) 0 nil nil).
 
 Definition derived5
   (B : LF)
-  (lN : list (pair SLF (list SLF))) :=
+  (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
+  :=
   Beta
-    (Alpha (sign 2 B) (Leaf (((sign 2 B); nil)::lN) nil 0 nil nil))
-    (Alpha (sign 0 B) (Leaf (((sign 0 B); nil)::lN) nil 0 nil nil)).
+    (Alpha (sign 2 B) (Leaf (((sign 2 B); nil)::lN) ((sign 2 B)::branch) 0 nil nil))
+    (Alpha (sign 0 B) (Leaf (((sign 0 B); nil)::lN) ((sign 0 B)::branch) 0 nil nil)).
 
 Definition derived6
   (B C : LF)
-  (lN : list (pair SLF (list SLF))) :=
+  (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
+  :=
   Beta
-    (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil))
-    (Alpha (sign 1 C) (Leaf (((sign 1 B); nil)::lN) nil 0 nil nil)).
+    (Alpha (sign 1 B) (Leaf (((sign 1 B); nil)::lN) ((sign 1 B)::branch) 0 nil nil))
+    (Alpha (sign 1 C) (Leaf (((sign 1 C); nil)::lN) ((sign 1 C)::branch) 0 nil nil)).
 
 Definition closeBranch : btree SLF :=
   Alpha (sign 0 (Atom "p"))
@@ -310,103 +352,90 @@ Definition closeBranch : btree SLF :=
 (**)
 (* lFBTC (lookForBranchesToClose) *)
 (**)
-Fixpoint lFBTC_aux
-  (control : bool)
-  (n1 : SLF)
-  (t : btree SLF)
-  (cond : SLF -> SLF -> bool)
-  :=
-  match t with
-  | Leaf lN _ tag _ _ =>
-      if control then tag::nil
-      else nil
-  | Alpha n2 nT =>
-      if cond n1 n2 then lFBTC_aux true n1 nT cond
-      else lFBTC_aux control n1 nT cond
-  | Beta nT1 nT2 =>
-      (lFBTC_aux control n1 nT1 cond)++
-        (lFBTC_aux control n1 nT2 cond)
-  end.
-
 Fixpoint lFBTC_aux2
-  (t : btree SLF)
   (cond : SLF -> SLF -> bool)
+  (h1 : SLF)
+  (l : list SLF)
   :=
-  match t with
-  | Leaf lN _ tag _ _ => nil
-  | Alpha N nT =>
-      (lFBTC_aux false N nT cond)++(lFBTC_aux2 nT cond)
-  | Beta nT1 nT2 =>
-      (lFBTC_aux2 nT1 cond)++
-        (lFBTC_aux2 nT2 cond)
+  match l with
+  | nil => false
+  | h2::tl =>
+      if cond h1 h2 then true
+      else
+        lFBTC_aux2 cond h1 tl
   end.
-    
-Compute isElementInList [1;2;3] 2 Nat.eqb.
 
 Fixpoint lFBTC_aux1
-  (t : btree SLF)
-  (l : list nat)
+  (cond : SLF -> SLF -> bool)
+  (l cpl : list SLF)
   :=
-  match t with
-  | Leaf lN _ tag _ _ =>
-      if negb (Nat.eqb (List.length lN) 0) then
-        if isElementInList l tag Nat.eqb then closeBranch
-        else Leaf lN nil 0 nil nil
-      else Leaf nil nil tag nil nil
-  | Alpha N nT =>
-      Alpha N (lFBTC_aux1 nT l)
-  | Beta nT1 nT2 =>
-      Beta
-        (lFBTC_aux1 nT1 l)
-        (lFBTC_aux1 nT2 l)
+  match l with
+  | nil => false
+  | h::tl =>
+      if lFBTC_aux2 cond h cpl then true
+      else lFBTC_aux1 cond tl cpl
   end.
 
-Definition lFBTC
+Fixpoint lFBTC
   (t : btree SLF)
   (cond : SLF -> SLF -> bool)
   :=
-  let taggedT := tagLeafs t in
-  let lClosed := lFBTC_aux2 taggedT cond in
-  lFBTC_aux1 taggedT lClosed.
+  match t with
+  | Leaf lN branch tag _ lvals =>
+      if Nat.eqb tag 0 then
+        if lFBTC_aux1 cond branch branch then
+          closeBranch
+        else
+          Leaf lN branch tag nil lvals
+      else
+        Leaf lN branch tag nil lvals
+  | Alpha N nT =>
+      Alpha N (lFBTC nT cond)
+  | Beta nT1 nT2 =>
+      Beta
+        (lFBTC nT1 cond)
+        (lFBTC nT2 cond)
+  end.
 
 Definition derivedDriver
   (s : nat)
   (A : LF)
   (lN : list (pair SLF (list SLF)))
+  (branch : list SLF)
   : stt SLF SLF
   :=
   match A with
   | B /\ C =>
       if isContradiction A then
         if Nat.eqb s 2 then
-          state _ _ (derived1 B C lN) nil nil
+          state _ _ (derived1 B C lN branch) nil nil
         else
           if Nat.eqb s 0 then
-            state _ _ (derived2 B C lN) nil nil
+            state _ _ (derived2 B C lN branch) nil nil
           else
-            state _ _ (Conj_rule s B C lN) nil nil
+            state _ _ (Conj_rule s B C lN branch) nil nil
       else
         if andb (isBola B) (isBola C) then
           let baseB := whichFormula B 1 in
           let baseC := whichFormula C 1 in
           if Nat.eqb s 2 then
-            state _ _ (derived3 baseB baseC lN) nil nil
+            state _ _ (derived3 baseB baseC lN branch) nil nil
           else
             if Nat.eqb s 1 then
               state _ _ (closeBranch) nil nil
             else
-              state _ _ (derived6 baseB baseC lN) nil nil
+              state _ _ (derived6 baseB baseC lN branch) nil nil
         else
-          state _ _ (Conj_rule s B C lN) nil nil
+          state _ _ (Conj_rule s B C lN branch) nil nil
   | ~ B =>
       if isBola A then
         let base := whichFormula A 1 in
-        if Nat.eqb s 0 then state _ _ (derived4 base lN) nil nil
+        if Nat.eqb s 0 then state _ _ (derived4 base lN branch) nil nil
         else
           if Nat.eqb s 1 then state _ _ (closeBranch) nil nil
-          else state _ _ (derived5 base lN) nil nil
+          else state _ _ (derived5 base lN branch) nil nil
       else
-        state _ _ (Neg_rule s B lN) nil nil
+        state _ _ (Neg_rule s B lN branch) nil nil
   | _ => state _ _ (Leaf nil nil 0 nil nil) nil nil
   end.
 
@@ -427,13 +456,77 @@ Definition C1_Tableau
       match toExpand with
       | sign s A =>
           match A with
-          | Atom _ => state _ _ (Leaf (explode listNodes) nil 0 nil nil) nil nil
-          | ~ B => state _ _ (Neg_rule s B (explode listNodes)) nil nil
-          | B /\ C => state _ _ (Conj_rule s B C (explode listNodes)) nil nil
-          | B \/ C => state _ _ (Disj_rule s B C (explode listNodes)) nil nil
-          | B -> C => state _ _ (Impl_rule s B C (explode listNodes)) nil nil
+          | Atom _ => state _ _ (Leaf (explode listNodes) branch 0 nil nil) nil nil
+          | ~ B => state _ _ (Neg_rule s B (explode listNodes) branch) nil nil
+          | B /\ C => state _ _ (Conj_rule s B C (explode listNodes) branch) nil nil
+          | B \/ C => state _ _ (Disj_rule s B C (explode listNodes) branch) nil nil
+          | B -> C => state _ _ (Impl_rule s B C (explode listNodes) branch) nil nil
           end
       end
+  end.
+
+Fixpoint insert {X : Type} 
+  (i : X) 
+  (l : list X) 
+  (cmp : X -> X -> bool)
+  :=
+  match l with
+  | [] => [i]
+  | h :: t => if cmp i h then i :: h :: t else h :: insert i t cmp
+  end.
+
+Fixpoint sort
+  {X : Type} 
+  (l : list X) 
+  (cmp : X -> X -> bool)
+  : list X :=
+  match l with
+  | [] => []
+  | h :: t => insert h (sort t cmp) cmp
+  end.
+
+Require Import Arith.
+Require Import Nat.
+
+Compute 2 <=? 2.
+
+Compute sort [3;1;4;1;5;9;2;6;5;3;5] Nat.ltb.
+
+(* Define a order P < Q *)
+Definition cmp_SLF (P Q : pair SLF (list SLF)) :=
+  let sP := proj_l P in
+  let sQ := proj_l Q in
+  match sP with
+  |  sign s1 P0 =>
+    match sQ with
+    |  sign s2 Q0 =>
+      match P0 with
+      | Atom _ => true
+      | ~ A =>        
+        if orb (Nat.eqb s1 0) (Nat.eqb s1 1) then true
+        else
+          match Q0 with
+          | Atom _ => false
+          | ~ B =>
+            if orb (Nat.eqb s2 0) (Nat.eqb s2 1) then false
+            else true
+          | B /\ C => true
+          | B \/ C =>
+            if Nat.eqb s2 0 then false
+            else true
+          | B -> C =>
+            if orb (Nat.eqb s2 0) (Nat.eqb s2 1) then false
+            else true
+          end
+      | A /\ B => false
+      | A \/ B =>
+        if Nat.eqb s1 0 then true
+        else false
+      | A -> B =>
+        if orb (Nat.eqb s1 0) (Nat.eqb s1 1) then true
+        else false
+      end
+    end
   end.
 
 Definition C1_Tableau_optimal
@@ -446,18 +539,19 @@ Definition C1_Tableau_optimal
   (lvals : list SLF)
   (m : list (mem SLF))
   (p : parameters) :=
-  match listNodes with
+  let lN_ordered := sort listNodes cmp_SLF in
+  match lN_ordered with
   | nil => state _ _ (Leaf nil nil 0 nil nil) lc m
   | h::tl =>
       let toExpand := proj_l h in
       match toExpand with
       | sign s A =>
           match A with
-          | Atom _ => state _ _ (Leaf (explode listNodes) nil 0 nil nil) nil nil
-          | ~ B => derivedDriver s A (explode listNodes)
-          | B /\ C => derivedDriver s A (explode listNodes)
-          | B \/ C => state _ _ (Disj_rule s B C (explode listNodes)) nil nil
-          | B -> C => state _ _ (Impl_rule s B C (explode listNodes)) nil nil
+          | Atom _ => state _ _ (Leaf (explode listNodes) branch 0 nil nil) nil nil
+          | ~ B => derivedDriver s A (explode listNodes) branch
+          | B /\ C => derivedDriver s A (explode listNodes) branch
+          | B \/ C => state _ _ (Disj_rule s B C (explode listNodes) branch) nil nil
+          | B -> C => state _ _ (Impl_rule s B C (explode listNodes) branch) nil nil
           end
       end
   end.
@@ -522,65 +616,140 @@ Fixpoint leafsClean (t : btree SLF) :=
         (leafsClean nT2)
   end.
 
-Fixpoint makeC1_aux (t : btree SLF) (deepness : list nat) :=
+Fixpoint makeC1_aux (t : btree SLF) (deepness : nat) :=
   match deepness with
-  | nil => t
-  | h::tl =>
-      let ntree := pop (make _ _ C1_Tableau t h) (Leaf nil nil 0 nil nil) in
+  | O => t
+  | S m =>
+      let ntree := pop (make _ _ C1_Tableau t 1) (Leaf nil nil 0 nil nil) in
       let opt_tree := (lFBTC ntree contra) in
-      if orb
-           (closure opt_tree contra)
-           (leafsClean opt_tree)
+      if leafsClean opt_tree
       then
         opt_tree
       else
-        makeC1_aux opt_tree tl
+        makeC1_aux opt_tree m
   end.
 
-Fixpoint makeC1_optimal_aux (t : btree SLF) (deepness : list nat) :=
+Fixpoint makeC1_optimal_aux (t : btree SLF) (deepness : nat) :=
   match deepness with
-  | nil => t
-  | h::tl =>
-      let ntree := pop (make _ _ C1_Tableau_optimal t h) (Leaf nil nil 0 nil nil) in
+  | O => t
+  | S m =>
+      let ntree := pop (make _ _ C1_Tableau_optimal t 1) (Leaf nil nil 0 nil nil) in
       let opt_tree := (lFBTC ntree contra) in
-      if orb
-           (closure opt_tree contra)
-           (leafsClean opt_tree)
+      if leafsClean opt_tree
       then
         opt_tree
       else
-        makeC1_optimal_aux opt_tree tl
+        makeC1_optimal_aux opt_tree m
   end.
 
-Fixpoint listOf1 (size : nat) :=
-  match size with
-  | O => nil
-  | S n => 1::(listOf1 n)
+Definition makeC1 (A : LF) (deepness : nat) (t : nat) :=
+  let lN := [((sign t A); nil)] in
+  let initialTree := makeInitialTree lN lN in
+  let result := makeC1_aux initialTree deepness in
+  result.
+
+Definition makeC1_optimal (A : LF) (deepness : nat) (t : nat) :=
+  let lN := [((sign t A); nil)] in
+  let initialTree := makeInitialTree lN lN in
+  let result := makeC1_optimal_aux initialTree deepness in
+  result.
+
+(* Sequents addons *)
+
+Fixpoint makeLN (l : list LF) (v : nat) : list (pair SLF (list SLF)) :=
+  match l with
+  | nil => nil
+  | h::tl => ((sign v h); nil)::(makeLN tl v)
   end.
 
-Definition makeC1 (A : LF) (deepness : nat) (displayTree : bool) :=
-  let lN := [((sign 0 A); nil)] in
-  let initialTree := makeInitialTree lN lN in
-  let deep := listOf1 deepness in
-  let result := makeC1_aux initialTree deep in
-  if displayTree then
-    (result; (closure result contra; List.length (parse result nil)))
-  else
-    ((Leaf nil nil 0 nil nil); (closure result contra; List.length (parse result nil))).
+Definition makeC1_optimal_seq (lh lc : list LF) (deepness : nat) (t : nat) :=
+  let hyp := makeLN lh 2 in
+  let cnc := makeLN lc 0 in
+  let initialTree := makeInitialTree (hyp++cnc) (hyp++cnc) in
+  let result := makeC1_optimal_aux initialTree deepness in
+  result.
 
-Definition makeC1_optimal (A : LF) (deepness : nat) (displayTree : bool) :=
-  let lN := [((sign 0 A); nil)] in
-  let initialTree := makeInitialTree lN lN in
-  let deep := listOf1 deepness in
-  let result := makeC1_optimal_aux initialTree deep in
-  if displayTree then
-    (result; (closure result contra; List.length (parse result nil)))
-  else
-    ((Leaf nil nil 0 nil nil); (closure result contra; List.length (parse result nil))).
+Require Import ZArith.
+Open Scope Z_scope.
 
-Definition A0 := (~~p2 -> p2).
+Fixpoint lengthZ {X : Type} (l : list X) : Z :=
+  match l with
+  | nil => 0
+  | h::tl => 1 + (lengthZ tl)
+  end.
 
-Compute makeC1_optimal A0 20 true.
+Fixpoint matrixSizeZ {X : Type} (l : list (list X)) : Z :=
+  match l with
+  | nil => 0
+  | h::tl => (lengthZ h) + (matrixSizeZ tl)
+  end.
+
+Close Scope Z_scope.
+
+Fixpoint matrixSize {X : Type} (l : list (list X)) : nat :=
+  match l with
+  | nil => 0
+  | h::tl => (List.length h) + (matrixSize tl)
+  end.
+
+Definition branchesCount
+  (t : btree SLF)
+  :=
+  List.length (parse t nil).
+
+Definition matrixSizeCount
+  (t : btree SLF)
+  :=
+  matrixSize (parse t nil).
+
+Definition decideClosure
+  (t : btree SLF)
+  :=
+  closure t contra.
+
+Fixpoint getFirstNEls {X : Type} (l : list X) (n : nat) :=
+  match n, l with
+  | S m, h::tl => h::(getFirstNEls tl m)
+  | _, _ => nil
+  end.
+
+Fixpoint getLastNEls {X : Type} (l : list X) (n : nat) :=
+  match n with
+  | O => l
+  | S m => getLastNEls (explode l) m
+  end.
+
+(* Extractions for Ocaml *)
+
+Require Coq.extraction.Extraction.
+
+Definition makeTableau_lazy (A : LF) (t : nat) :=
+  makeC1 A 100 t.
+
+Definition makeTableau (A : LF) (t : nat) :=
+  makeC1_optimal A 100 t.
+
+Definition makeTableauSeq (hyp conc : list LF) (t : nat) :=
+  makeC1_optimal_seq hyp conc 100 t.
+
+Require Coq.extraction.ExtrOcamlString.
+
+Extract Inductive bool => "bool" [ "true" "false" ].
+Extract Inductive list => "list" [ "[]" "(::)" ].
+
+Extraction
+  makeTableauSeq.
+
+Recursive Extraction
+  branchesCount
+  matrixSizeCount
+  decideClosure
+  makeC1_optimal
+  makeC1
+  cngen2
+  makeTableau.
+
+(*
 
 (* EXAMPLES *)
 
@@ -642,5 +811,7 @@ Compute makeC1 propag_consist_conj_2 100 false.
 Compute makeC1 propag_consist_conj_2 100 false.
 Compute makeC1 propag_consist_conj_2 100 false.
 Compute makeC1 propag_consist_conj_2 100 false.
+
+*)
 
 *)

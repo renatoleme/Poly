@@ -71,4 +71,4 @@ Please look inside of each file for specific orientations about how to run with 
 
 # References
 
-1. LEME, Renato; CONIGLIO, Marcelo; LOPES, Bruno; VENTURI, Giorgio. Ecumenical Propositional Tableau. Studia Logica. 2023. *Forthcoming*.
+1. Leme, R., Coniglio, M., Lopes, B. et al. Ecumenical Propositional Tableau. Stud Logica (2024). https://doi.org/10.1007/s11225-023-10091-0

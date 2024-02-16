@@ -654,7 +654,7 @@ Definition Cn_Tableau_optimal
   (p : parameters) :=
   let V := map (fun x => match x with sign n _ => n end) lvals in
   match listNodes with
-  | nil => state _ _ (Leaf nil branch 0 nil lvals) lc m
+  | nil => state _ _ (Leaf nil branch 404 nil lvals) lc m
   | h::tl =>
       let toExpand := proj_l h in
       match toExpand with
@@ -1031,6 +1031,53 @@ Fixpoint matrixSize {X : Type} (l : list (list X)) : nat :=
   | h::tl => (List.length h) + (matrixSize tl)
   end.
 
+Definition branchesCount
+  (t : btree SLF)
+  :=
+  List.length (parse t nil).
+
+Definition matrixSizeCount
+  (t : btree SLF)
+  :=
+  matrixSize (parse t nil).
+
+Definition decideClosure
+  (t : btree SLF)
+  :=
+  closure t contra.
+
+Compute makeCn_optimal ((p0 \/ ~p0)->p0) 100 [0;1;2;3] 0.
+
+Compute whichIndex (~ (Atom "p0" /\ Atom "p1")).
+
+Compute whichIndex (cngen p0 1).
+
+(* Extractions for Ocaml *)
+
+Require Coq.extraction.Extraction.
+
+Compute getLastNEls (reverseListOrder (upto 2)) 1.
+
+Definition makeTruthValues (n : nat) :=
+  let vec := [0;1]++getLastNEls (reverseListOrder (upto (n+1))) 1
+  in vec.
+
+Definition makeTableau (A : LF) (n : nat) (t : nat) :=
+  let tv := makeTruthValues n in
+  makeCn_optimal A 1 tv t.
+
+Require Coq.extraction.ExtrOcamlString.
+
+Extract Inductive bool => "bool" [ "true" "false" ].
+Extract Inductive list => "list" [ "[]" "(::)" ].
+
+Recursive Extraction branchesCount matrixSizeCount decideClosure getFirstNEls getLastNEls makeCn_optimal makeCn.
+
+Extraction p0.
+
+Extraction whichIndex.
+
+
 (** TESTES . A partir de T2 . **)
 
 (* T2 *)
@@ -1088,54 +1135,8 @@ Definition T4_disj4 (b : bool) := if b then makeCn_optimal (propag_consist_disj_
 Definition T4_impl4 (b : bool) := if b then makeCn_optimal (propag_consist_impl_4) 100 [0;1;2;3;4;5] else Leaf nil nil 0 nil nil.
 
 Check T4_conj4.
-*)
-
-Definition branchesCount
-  (t : btree SLF)
-  :=
-  List.length (parse t nil).
-
-Definition matrixSizeCount
-  (t : btree SLF)
-  :=
-  matrixSize (parse t nil).
-
-Definition decideClosure
-  (t : btree SLF)
-  :=
-  closure t contra.
-
-Compute makeCn_optimal (~(p0 /\ p1)) 0 [0;1;2;3] 0.
-
-Compute whichIndex (~ (Atom "p0" /\ Atom "p1")).
-
-Compute whichIndex (cngen p0 1).
-
-(* Extractions for Ocaml *)
-
-Require Coq.extraction.Extraction.
-
-Compute getLastNEls (reverseListOrder (upto 2)) 1.
-
-Definition makeTruthValues (n : nat) :=
-  let vec := [0;1]++getLastNEls (reverseListOrder (upto (n+1))) 1
-  in vec.
-
-Definition makeTableau (A : LF) (n : nat) (t : nat) :=
-  let tv := makeTruthValues n in
-  makeCn_optimal A 1 tv t.
-
-Require Coq.extraction.ExtrOcamlString.
+ *)
 
 (*Extraction makeTableau.*)
 
 (*Recursive Extraction T2_conj1 T2_disj1 T2_impl1 T2_conj2 T2_disj2 T2_impl2 T2_conj3 T2_disj3 T2_impl3 T2_conj4 T2_disj4 T2_impl4 T3_conj1 T3_disj1 T3_impl1 T3_conj2 T3_disj2 T3_impl2 T3_conj3 T3_disj3 T3_impl3 T3_conj4 T3_disj4 T3_impl4 T4_conj1 T4_disj1 T4_impl1 T4_conj2 T4_disj2 T4_impl2 T4_conj3 T4_disj3 T4_impl3 T4_conj4 T4_disj4 T4_impl4 branchesCount matrixSizeCount decideClosure.*)
-
-Extract Inductive bool => "bool" [ "true" "false" ].
-Extract Inductive list => "list" [ "[]" "(::)" ].
-
-Recursive Extraction branchesCount matrixSizeCount decideClosure getFirstNEls getLastNEls makeCn_optimal makeCn.
-
-Extraction p0.
-
-Extraction whichIndex.
