@@ -1,6 +1,6 @@
 # Poly
 
-Methods for tableaux deductive system in Coq. With [Poly.v](Poly.v) you can implement different tableaux systems. In this repository, we have, currently, the following tableaux systems:
+Methods for tableaux deductive system in Coq. With [Poly.v](Poly.v) one can implement different tableaux systems. In this repository, we have, currently, the following tableaux systems:
 
 - [x] Classical Propositional Logic (CL)
 - [x] Ecumenical Propositional Logic ($E_T$)
