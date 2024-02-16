@@ -1,4 +1,4 @@
-Add LoadPath "../" as Main.
+(*Add LoadPath "../" as Main.*)
 Require Import Main.Poly.
 Require Import List.
 Require Import String.
@@ -177,7 +177,7 @@ Fixpoint closeToTrans_aux (l cl : list node) :=
   end.
 
 Definition closeToTrans (l : list node) := closeToTrans_aux l l.
-
+(*
 Fixpoint ListMemNodeToListNode (lm : list (mem node)) :=
   match lm with
   | nil => nil
@@ -185,7 +185,7 @@ Fixpoint ListMemNodeToListNode (lm : list (mem node)) :=
              | empty _ => (ListMemNodeToListNode tl)
              | record _ _ val => val::(ListMemNodeToListNode tl)
              end
-  end.
+  end.*)
 
 Fixpoint ListNodeToMemNode (ln : list node) :=
   match ln with
@@ -685,6 +685,30 @@ Definition contra (A B : node) :=
       end
   | _ => false
   end.
+ 
+(*
+Definition contra (A B : node) :=
+  match A with
+  | Node SF1 w1 =>
+      match B with
+      | Node SF2 w2 =>
+          if (Nat.eqb w1 w2) then
+            match SF1 with
+            | T b1 L1 =>
+                match SF2 with
+                | T b2 L2 =>
+                    if xorb b1 b2 then
+                      if eqb_LF L1 L2 then true
+                      else false
+                    else false
+                end
+            end
+          else false
+      | _ => false
+      end
+  | _ => false
+  end.
+*)
   
 Fixpoint closure_aux2 (el : node) (l : list node) :=
   match l with
@@ -1074,13 +1098,14 @@ Definition auto_tableau (l : list LF) (displayTree : bool) :=
       ((listOf1 1000))
       (Pair (Leaf nil nil 0 nil nil) nil) in
   if displayTree then
-    Pair (closure (proj_l response)) response
+    Pair (closure (proj_l response)) ((cleanLeaf (proj_l response));(proj_r response))
   else
     Pair (closure (proj_l response)) (Pair (Leaf nil nil 0 nil nil) nil).
 
 (*******)
 
 Definition ec1 := (P ->i Q) ->i (P ->c Q).
+Definition pseudo_ec1 := (P ->c Q) ->i (P ->i Q). (* Não vale! *)
 Definition ec2_ida := (P /\ Q) ->i ~(~P \/c ~Q).
 Definition ec2_volta := ~(~P \/c ~Q) ->i (P /\ Q). (* Não vale! *)
 Definition ec3_ida := (P /\ Q) ->i ~(P ->c ~Q).
@@ -1103,4 +1128,4 @@ Definition p9 := ((~ (~ P)) /\ (~ (~ ( Q)))) <->i (~ (~ (P /\ ( Q)))). (* Pesado
 Definition p10 := ((~ (~ P)) ->i (~ (~ ( Q)))) <->i (~ (~ (P ->i ( Q)))). (* Pesado *)
 Definition p11 := ((~ (~ P)) ->i ( Q)) ->i ((~ ( Q)) ->i (~ P)).
 
-Compute auto_tableau [ec5] false.
+Compute auto_tableau [pseudo_ec1] true.
